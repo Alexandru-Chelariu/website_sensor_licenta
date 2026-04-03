@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Platform</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; background: #f8f9fa; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 3rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .reading { font-size: 1.2rem; font-weight: 600; margin: 1rem 0; }
+        .timestamp { color: #666; font-size: 0.9rem; }
+        .status { padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.8rem; font-weight: 500; }
+        .status.normal { background: #d4edda; color: #155724; }
+        .status.alert { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Sensor Monitoring Platform</h1>
+            <p>Live data from ESP32/Arduino car</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Latest Readings</h2>
+                {% for reading in latest_readings %}
+                <div class="reading">
+                    <strong>{{ reading.sensor_type|title }}</strong>: {{ reading.value|default:"N/A" }} {{ reading.unit }}
+                    <span class="status {{ reading.status }}">{{ reading.status|title }}</span>
+                </div>
+                {% empty %}
+                <p>No readings yet. Check MQTT subscriber.</p>
+                {% endfor %}
+            </div>
+
+            <div class="card">
+                <h2>Recent Events</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sensor</th>
+                            <th>Value</th>
+                            <th>Topic</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in recent_readings %}
+                        <tr>
+                            <td>{{ reading.sensor_type|title }}</td>
+                            <td>{{ reading.value|default:"N/A" }} {{ reading.unit }}</td>
+                            <td>{{ reading.topic }}</td>
+                            <td>{{ reading.created_at|date:"H:i:s" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">No recent data</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
