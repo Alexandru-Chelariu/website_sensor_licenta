@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Platforma Monitorizare Utilaje{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-top">
+                <div class="logo-box">
+                    <img src="{% static 'dashboard/images/logo-utcb-ro.svg' %}" alt="Logo UTCB" class="logo-img">
+                </div>
+
+                <button class="menu-toggle" id="toggleBtn" type="button">
+                    <div class="burger-box">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="menu-label">Meniu</span>
+                </button>
+
+                <nav class="nav">
+                    <a href="{% url 'home' %}" class="nav-link {% if active_tab == 'home' %}active{% endif %}">
+                        <span class="nav-icon">
+</span>
+                        <span class="nav-text">Acasă</span>
+                    </a>
+
+                    <a href="{% url 'machines' %}" class="nav-link {% if active_tab == 'machines' %}active{% endif %}">
+                        <span class="nav-text">Utilajele mele</span>
+                    </a>
+
+                    <a href="{% url 'contact' %}" class="nav-link {% if active_tab == 'contact' %}active{% endif %}">
+                        <span class="nav-text">Contact</span>
+                    </a>
+                </nav>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="footer-text">
+                    Student: Chelariu Alexandru Cristian<br>
+                    Profesor coordonator: Ș.l. Dr. Ing.<br>
+                    Panaitescu-Liess Radu
+                </div>
+            </div>
+        </aside>
+
+        <main class="main" id="mainContent">
+            <header class="topbar">
+                <h1>Platforma pentru Monitorizarea Parametrilor Utilajelor pentru Construcții</h1>
+            </header>
+
+            <section class="content">
+                {% block content %}{% endblock %}
+            </section>
+
+            <footer class="footer-page">
+                All rights reserved @Chelariu Alexandru
+            </footer>
+        </main>
+    </div>
+
+    <script src="{% static 'dashboard/js/sidebar.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

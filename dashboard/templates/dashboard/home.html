@@ -1,71 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor Platform</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; background: #f8f9fa; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 3rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .reading { font-size: 1.2rem; font-weight: 600; margin: 1rem 0; }
-        .timestamp { color: #666; font-size: 0.9rem; }
-        .status { padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.8rem; font-weight: 500; }
-        .status.normal { background: #d4edda; color: #155724; }
-        .status.alert { background: #f8d7da; color: #721c24; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🚗 Sensor Monitoring Platform</h1>
-            <p>Live data from ESP32/Arduino car</p>
-        </div>
+{% extends "dashboard/base.html" %}
 
-        <div class="grid">
-            <div class="card">
-                <h2>Latest Readings</h2>
-                {% for reading in latest_readings %}
-                <div class="reading">
-                    <strong>{{ reading.sensor_type|title }}</strong>: {{ reading.value|default:"N/A" }} {{ reading.unit }}
-                    <span class="status {{ reading.status }}">{{ reading.status|title }}</span>
-                </div>
-                {% empty %}
-                <p>No readings yet. Check MQTT subscriber.</p>
-                {% endfor %}
-            </div>
+{% block title %}Acasă | Platforma Monitorizare Utilaje{% endblock %}
 
-            <div class="card">
-                <h2>Recent Events</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sensor</th>
-                            <th>Value</th>
-                            <th>Topic</th>
-                            <th>Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for reading in recent_readings %}
-                        <tr>
-                            <td>{{ reading.sensor_type|title }}</td>
-                            <td>{{ reading.value|default:"N/A" }} {{ reading.unit }}</td>
-                            <td>{{ reading.topic }}</td>
-                            <td>{{ reading.created_at|date:"H:i:s" }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="4">No recent data</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+{% block content %}
+<div class="page-card">
+    <h2 class="section-title">Proiect de licență</h2>
+    <p class="muted-text">
+        Această platformă a fost dezvoltată pentru monitorizarea în timp real a parametrilor funcționali
+        ai utilajelor pentru construcții. Sistemul integrează senzori industriali, comunicație MQTT și
+        o interfață web bazată pe Django, având rolul de a centraliza datele, de a urmări starea
+        echipamentelor și de a contribui la creșterea siguranței în exploatare.
+    </p>
+</div>
+
+<div class="home-grid">
+    <div class="info-card">
+        <h3>Scopul aplicației</h3>
+        <p>
+            Platforma permite supravegherea parametrilor proveniți de la senzori montați pe utilaje
+            precum buldozere, excavatoare, macarale sau autobasculante, oferind o imagine clară
+            asupra stării tehnice și operaționale a acestora.
+        </p>
     </div>
-</body>
-</html>
+
+    <div class="info-card">
+        <h3>Date monitorizate</h3>
+        <p>
+            Sunt urmărite valori din categoriile motor, sistem hidraulic, sistem pneumatic, sculă,
+            localizare GPS, prevenire accidente și parametri de mediu.
+        </p>
+    </div>
+
+    <div class="info-card">
+        <h3>Tehnologii utilizate</h3>
+        <p>
+            Soluția software este realizată cu Python, Django, HTML și CSS, iar transmiterea datelor
+            este proiectată prin MQTT, cu integrare pentru ESP32, Arduino, MicroPython și C++.
+        </p>
+    </div>
+
+    <div class="info-card">
+        <h3>Beneficii</h3>
+        <p>
+            Sistemul contribuie la detectarea rapidă a anomaliilor, la monitorizarea centralizată
+            a utilajelor și la susținerea deciziilor de mentenanță preventivă.
+        </p>
+    </div>
+</div>
+
+<div class="page-card">
+    <h2 class="section-title">Funcționalități principale</h2>
+    <p class="muted-text">
+        Interfața oferă acces la o evidență centralizată a utilajelor monitorizate și la informații utile
+        privind funcționarea generală a sistemului de monitorizare.
+    </p>
+
+    <div class="feature-list">
+        <div class="feature-item">Monitorizare în timp real</div>
+        <div class="feature-item">Organizare pe tipuri de utilaje</div>
+        <div class="feature-item">Afișarea categoriilor de senzori</div>
+        <div class="feature-item">Suport pentru sisteme IoT industriale</div>
+    </div>
+</div>
+{% endblock %}
