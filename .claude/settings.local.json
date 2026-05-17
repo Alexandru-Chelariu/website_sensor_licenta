@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:/Program Files/mosquitto/mosquitto.exe\" -v)",
+      "Bash(.venv/Scripts/python.exe mqtt_client/subscriber.py)",
+      "Bash(.venv/Scripts/python.exe mqtt_client/machinery_sender.py)",
+      "PowerShell(Get-Process -Id 4920)",
+      "PowerShell(Get-Process -Id 4920 -ErrorAction SilentlyContinue)",
+      "PowerShell(tasklist /fi \"PID eq 4920\" 2>$null)",
+      "Bash(taskkill //F //PID 27892)",
+      "Bash(tasklist /fi \"imagename eq python.exe\" /fo table)",
+      "PowerShell(Get-WmiObject Win32_Process -Filter \"name='python.exe'\")",
+      "PowerShell(Stop-Process -Id 12640, 24424 -Force)",
+      "PowerShell(Stop-Process -Id 20036, 13124 -Force)"
+    ]
+  }
+}

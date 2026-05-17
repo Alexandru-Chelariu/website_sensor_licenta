@@ -1,0 +1,534 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ machine.get_machine_type_display }} {{ machine.machine_id }} | Monitorizare{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'machines' %}"
+   class="inline-flex items-center gap-2 mb-5 px-5 py-2.5 no-underline text-[#111] text-[16px] font-bold bg-white hover:bg-[#eef9c9] transition-colors rounded-[10px]"
+   style="border:2px solid #111">
+    &#8592; Înapoi la utilaje
+</a>
+
+<!-- Machine Header -->
+<div class="flex items-start gap-6 flex-wrap bg-white p-6 mb-5 rounded-3xl" style="border:3px solid #111">
+    <div class="flex items-center gap-4 flex-[2] min-w-[220px]">
+        <div class="text-[72px] leading-none">🚜</div>
+        <div>
+            <h2 class="text-[28px] font-bold mb-1">{{ machine.get_machine_type_display }}</h2>
+            <p class="text-[20px] text-[#444]">SN: {{ machine.machine_id }}</p>
+            {% if machine.label %}<p class="text-[16px] text-[#666] mt-1">{{ machine.label }}</p>{% endif %}
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-2 text-[16px] flex-[2] min-w-[200px]">
+        {% if machine.location %}<p>&#128205; {{ machine.location }}</p>{% endif %}
+        {% if machine.firmware %}<p>FW: {{ machine.firmware }}</p>{% endif %}
+        <p>Ultima activitate:
+            {% if machine.last_seen %}{{ machine.last_seen|date:"d.m.Y H:i:s" }}{% else %}N/A{% endif %}
+        </p>
+        {% if machine.is_active %}
+            <span class="machine-badge badge-active self-start">Activ</span>
+        {% else %}
+            <span class="machine-badge badge-inactive self-start">Inactiv</span>
+        {% endif %}
+    </div>
+
+    <div class="flex items-center gap-2.5 px-[18px] py-2.5 bg-white self-start rounded-xl" style="border:2px solid #111">
+        <span class="ws-dot w-3.5 h-3.5 rounded-full bg-[#ccc] transition-colors duration-300 shrink-0" id="ws-dot"></span>
+        <span class="text-[15px] font-bold" id="ws-label">Conectare...</span>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="flex gap-3.5 mb-6 flex-wrap">
+    <div class="summary-item summary-normal flex-1 min-w-[90px] rounded-2xl px-2.5 py-3.5 text-center font-bold text-[14px]" style="border:3px solid #111">
+        <span class="block text-[34px] font-bold mb-1" id="count-normal">0</span>
+        <span>Normal</span>
+    </div>
+    <div class="summary-item summary-warning flex-1 min-w-[90px] rounded-2xl px-2.5 py-3.5 text-center font-bold text-[14px]" style="border:3px solid #111">
+        <span class="block text-[34px] font-bold mb-1" id="count-warning">0</span>
+        <span>Avertizare</span>
+    </div>
+    <div class="summary-item summary-critical flex-1 min-w-[90px] rounded-2xl px-2.5 py-3.5 text-center font-bold text-[14px]" style="border:3px solid #111">
+        <span class="block text-[34px] font-bold mb-1" id="count-critical">0</span>
+        <span>Critic</span>
+    </div>
+    <div class="summary-item summary-fault flex-1 min-w-[90px] rounded-2xl px-2.5 py-3.5 text-center font-bold text-[14px]" style="border:3px solid #111">
+        <span class="block text-[34px] font-bold mb-1" id="count-fault">0</span>
+        <span>Defect</span>
+    </div>
+    <div class="summary-item summary-unknown flex-1 min-w-[90px] rounded-2xl px-2.5 py-3.5 text-center font-bold text-[14px]" style="border:3px solid #111">
+        <span class="block text-[34px] font-bold mb-1" id="count-unknown">0</span>
+        <span>Necunoscut</span>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="flex gap-1 mb-6" style="border-bottom:3px solid #111">
+    <button class="tab-btn px-6 py-3 bg-white cursor-pointer text-[16px] font-bold text-[#111] hover:bg-[#eef9c9] transition-colors rounded-t-xl active" style="border:3px solid #111" data-tab="sensors">&#128268; Senzori</button>
+    <button class="tab-btn px-6 py-3 bg-white cursor-pointer text-[16px] font-bold text-[#111] hover:bg-[#eef9c9] transition-colors rounded-t-xl" style="border:3px solid #111" data-tab="cameras">&#128249; Camere</button>
+    <button class="tab-btn px-6 py-3 bg-white cursor-pointer text-[16px] font-bold text-[#111] hover:bg-[#eef9c9] transition-colors rounded-t-xl" style="border:3px solid #111" data-tab="gps">&#127758; Localizare GPS</button>
+    <button class="tab-btn px-6 py-3 bg-white cursor-pointer text-[16px] font-bold text-[#111] hover:bg-[#eef9c9] transition-colors rounded-t-xl" style="border:3px solid #111" data-tab="visual">&#128663; Vizualizare Utilaj</button>
+</div>
+
+<!-- ══ TAB 1 — Sensors ══════════════════════════════════════ -->
+<div class="tab-pane active" id="tab-sensors">
+{% for cat_name, cat_data in sensors_by_category.items %}
+<div class="mb-7">
+    <div class="flex items-center gap-4 mb-3.5 px-5 py-3 rounded-xl" style="background:linear-gradient(180deg,#98db45 0%,#c7ef68 100%);border:2px solid #111">
+        <h3 class="text-[20px] font-bold flex-1">{{ cat_data.label }}</h3>
+        <span class="text-[13px] font-bold px-3 py-1 rounded-full" style="background:rgba(255,255,255,0.45);border:1px solid #111">{{ cat_data.readings|length }} senzori</span>
+    </div>
+    <div class="grid gap-3.5" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">
+        {% for reading in cat_data.readings %}
+        {% if "camera" not in reading.sensor.sensor_id %}
+        <div class="sensor-card bg-white flex flex-col gap-2.5 relative transition-[filter] duration-300"
+             id="sensor-{{ cat_name }}-{{ reading.sensor.sensor_id }}"
+             data-category="{{ cat_name }}"
+             data-sensor-id="{{ reading.sensor.sensor_id }}"
+             data-status="{{ reading.status }}"
+             style="border:3px solid #111;border-left-width:7px;border-radius:18px;padding:14px 16px;min-height:130px">
+            <div class="text-[13px] font-bold text-[#555] leading-snug">{{ reading.sensor.label }}</div>
+            <div class="flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-[26px] font-bold text-[#111] break-all sensor-value">{{ reading.raw_value }}</span>
+                {% if reading.unit %}<span class="text-[13px] text-[#777] sensor-unit">{{ reading.unit }}</span>{% endif %}
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-auto flex-wrap">
+                <span class="badge badge-{{ reading.status }}">{{ reading.get_status_display }}</span>
+                <span class="text-[11px] text-[#999] whitespace-nowrap sensor-time">{{ reading.received_at|date:"H:i:s" }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<div class="bg-white p-7 rounded-[28px]" style="border:3px solid #111">
+    <h2 class="text-[34px] text-center mb-[18px] font-bold">Nu există date de telemetrie</h2>
+    <p class="text-[18px] leading-relaxed text-center">Acest utilaj nu a transmis niciun senzor încă.</p>
+</div>
+{% endfor %}
+</div>
+
+<!-- ══ TAB 2 — Camera Preview ══════════════════════════════ -->
+<div class="tab-pane" id="tab-cameras">
+    <div class="grid gap-5" id="cameras-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
+    {% for cat_name, cat_data in sensors_by_category.items %}
+        {% for reading in cat_data.readings %}
+            {% if "camera" in reading.sensor.sensor_id %}
+            <div class="overflow-hidden rounded-2xl bg-[#111]" style="border:3px solid #111">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-[#1e1e1e]" style="border-bottom:2px solid #333">
+                    <span class="cam-name text-white text-[14px] font-bold tracking-wide">{{ reading.sensor.label }}</span>
+                    <span class="cam-badge {% if reading.raw_value == 'streaming' %}streaming{% else %}offline{% endif %} text-[11px] font-bold px-2.5 py-1 rounded-md tracking-widest"
+                          id="cam-badge-{{ reading.sensor.sensor_id }}">
+                        {% if reading.raw_value == 'streaming' %}&#9679; LIVE{% else %}&#9675; OFFLINE{% endif %}
+                    </span>
+                </div>
+                <div class="camera-viewport w-full relative flex items-center justify-center overflow-hidden bg-[#0d0d0d] {% if reading.raw_value == 'streaming' %}streaming{% else %}offline{% endif %}"
+                     id="cam-vp-{{ reading.sensor.sensor_id }}"
+                     style="aspect-ratio:16/9">
+                    <div class="cam-overlay"></div>
+                    <div class="cam-live absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2 py-1 rounded" style="background:rgba(0,0,0,0.55);z-index:3">
+                        <div class="cam-live-dot w-2 h-2 rounded-full bg-[#ff3333]" style="animation:recBlink 1s ease-in-out infinite"></div>
+                        <span class="cam-live-text text-white text-[11px] font-bold tracking-widest">REC</span>
+                    </div>
+                    <div class="cam-timestamp absolute bottom-2 right-2.5 text-[11px] font-mono" id="cam-ts-{{ reading.sensor.sensor_id }}"
+                         style="color:rgba(255,255,255,0.6);z-index:3">
+                        {{ reading.received_at|date:"H:i:s" }}
+                    </div>
+                    <div class="cam-offline-msg text-center text-[#444]" style="z-index:3">
+                        <div class="text-[36px] mb-2.5 opacity-50">&#128247;</div>
+                        <p class="text-[13px] font-bold tracking-widest">SEMNAL PIERDUT</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+    </div>
+    <p class="mt-4 p-5 text-center text-[#666] text-[16px] rounded-xl" id="no-cameras-msg" style="display:none;border:2px dashed #ccc">
+        Nicio cameră detectată pentru acest utilaj.
+    </p>
+</div>
+
+<!-- ══ TAB 3 — GPS Map ══════════════════════════════════════ -->
+<div class="tab-pane" id="tab-gps">
+    <div class="flex gap-4 flex-wrap bg-white px-5 py-4 mb-4 rounded-2xl" style="border:3px solid #111">
+        <div class="flex flex-col gap-1 min-w-[140px]">
+            <span class="text-[12px] font-bold text-[#666] uppercase tracking-wide">Latitudine</span>
+            <span class="text-[20px] font-bold font-mono" id="gps-lat-display">{% if gps_lat %}{{ gps_lat }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="flex flex-col gap-1 min-w-[140px]">
+            <span class="text-[12px] font-bold text-[#666] uppercase tracking-wide">Longitudine</span>
+            <span class="text-[20px] font-bold font-mono" id="gps-lng-display">{% if gps_lng %}{{ gps_lng }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="flex flex-col gap-1 min-w-[140px]">
+            <span class="text-[12px] font-bold text-[#666] uppercase tracking-wide">Actualizat</span>
+            <span class="text-[20px] font-bold font-mono" id="gps-updated">—</span>
+        </div>
+    </div>
+    <div id="gps-map"></div>
+    {% if not gps_lat %}
+    <p class="mt-4 p-5 text-center text-[#666] text-[16px] rounded-xl" style="border:2px dashed #ccc">
+        Nu există date GPS disponibile pentru acest utilaj încă.
+    </p>
+    {% endif %}
+</div>
+
+<!-- ══ TAB 4 — Machine Visualization ═══════════════════════ -->
+<div class="tab-pane" id="tab-visual">
+
+    <div class="flex items-center gap-5 flex-wrap bg-white px-5 py-3.5 mb-5 rounded-xl" style="border:2px solid #111">
+        <span class="text-[15px] font-bold text-[#444]">Legendă:</span>
+        <div class="flex items-center gap-2 text-[14px] font-bold"><div class="w-[22px] h-[22px] rounded-md bg-[#d0d0d0]" style="border:2px solid #111"></div> Fără date</div>
+        <div class="flex items-center gap-2 text-[14px] font-bold"><div class="w-[22px] h-[22px] rounded-md bg-[#8fd84b]" style="border:2px solid #111"></div> Normal</div>
+        <div class="flex items-center gap-2 text-[14px] font-bold"><div class="w-[22px] h-[22px] rounded-md bg-[#f5a623]" style="border:2px solid #111"></div> Avertizare</div>
+        <div class="flex items-center gap-2 text-[14px] font-bold"><div class="w-[22px] h-[22px] rounded-md bg-[#ff4747]" style="border:2px solid #111"></div> Critic</div>
+        <div class="flex items-center gap-2 text-[14px] font-bold"><div class="w-[22px] h-[22px] rounded-md bg-[#1a1a1a]" style="border:2px solid #111"></div> Defect</div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6">
+
+        <!-- TOP VIEW -->
+        <div class="bg-white text-center p-5 rounded-[18px]" style="border:3px solid #111">
+            <h4 class="text-[18px] font-bold mb-4">Vedere de sus</h4>
+
+            {% if machine.machine_type == "bulldozer" %}
+            <svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="5" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="16" y="18" width="36" height="424" rx="6" fill="none" stroke="#888" stroke-width="1.5"/>
+              <rect data-part-category="transmission" x="277" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="288" y="18" width="36" height="424" rx="6" fill="none" stroke="#888" stroke-width="1.5"/>
+              <rect data-part-category="tool" x="0" y="0" width="340" height="32" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="3"/>
+              <line x1="20" y1="16" x2="320" y2="16" stroke="#888" stroke-width="1.5" opacity="0.5"/>
+              <rect data-part-category="hydraulic" x="68" y="30" width="16" height="72" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="hydraulic" x="256" y="30" width="16" height="72" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect x="68" y="35" width="204" height="415" rx="8" fill="#e8e8e8" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="engine" x="82" y="48" width="176" height="140" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <text x="170" y="124" text-anchor="middle" font-size="14" fill="#333" font-weight="bold" font-family="Arial">ENGINE</text>
+              <rect data-part-category="system" x="96" y="225" width="148" height="120" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <text x="170" y="292" text-anchor="middle" font-size="14" fill="#333" font-weight="bold" font-family="Arial">CAB</text>
+              <circle data-part-category="gps" cx="170" cy="412" r="12" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <text x="170" y="416" text-anchor="middle" font-size="8" fill="#333" font-weight="bold" font-family="Arial">GPS</text>
+              <rect data-part-category="accident_prevention" x="68" y="33" width="204" height="8" rx="3" fill="#d0d0d0" stroke="#111" stroke-width="1.5"/>
+            </svg>
+            {% elif machine.machine_type == "excavator" %}
+            <svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="5" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="16" y="18" width="36" height="424" rx="6" fill="none" stroke="#888" stroke-width="1.5"/>
+              <rect data-part-category="transmission" x="277" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="288" y="18" width="36" height="424" rx="6" fill="none" stroke="#888" stroke-width="1.5"/>
+              <ellipse data-part-category="system" cx="170" cy="260" rx="100" ry="120" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="engine" x="110" y="210" width="120" height="90" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="hydraulic" x="155" y="70" width="30" height="145" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <path data-part-category="tool" d="M145,8 L195,8 L205,70 L135,70 Z" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+            </svg>
+            {% elif machine.machine_type == "crane" %}
+            <svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="5" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="transmission" x="277" y="5" width="58" height="450" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="system" x="82" y="180" width="176" height="160" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="engine" x="100" y="198" width="140" height="80" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="tool" x="158" y="5" width="24" height="180" rx="5" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="tool" cx="170" cy="16" r="14" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+            </svg>
+            {% elif machine.machine_type == "dumptruck" %}
+            <svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="5" y="270" width="58" height="185" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="transmission" x="277" y="270" width="58" height="185" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="transmission" x="5" y="90" width="58" height="115" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="transmission" x="277" y="90" width="58" height="115" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="system" x="70" y="5" width="200" height="130" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="engine" x="90" y="22" width="160" height="96" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="tool" x="70" y="160" width="200" height="295" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="pneumatic" x="70" y="442" width="200" height="13" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="1.5"/>
+            </svg>
+            {% else %}
+            <p class="py-10 px-5 text-[#666] text-[16px]">Vizualizare indisponibilă pentru tipul: <b>{{ machine.machine_type }}</b></p>
+            {% endif %}
+        </div>
+
+        <!-- SIDE VIEW -->
+        <div class="bg-white text-center p-5 rounded-[18px]" style="border:3px solid #111">
+            <h4 class="text-[18px] font-bold mb-4">Vedere laterală</h4>
+
+            {% if machine.machine_type == "bulldozer" %}
+            <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="28" y="208" width="444" height="64" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="38" y="218" width="424" height="44" rx="7" fill="none" stroke="#888" stroke-width="1.5"/>
+              <circle data-part-category="transmission" cx="450" cy="240" r="38" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle cx="450" cy="240" r="18" fill="none" stroke="#888" stroke-width="2"/>
+              <circle cx="450" cy="240" r="6" fill="#888"/>
+              <circle data-part-category="transmission" cx="50" cy="240" r="30" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle cx="50" cy="240" r="12" fill="none" stroke="#888" stroke-width="1.5"/>
+              <circle data-part-category="transmission" cx="158" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <circle data-part-category="transmission" cx="248" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <circle data-part-category="transmission" cx="338" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect x="50" y="200" width="400" height="10" rx="3" fill="#c0c0c0" stroke="#111" stroke-width="1.5"/>
+              <rect data-part-category="hydraulic" x="26" y="152" width="52" height="12" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2" transform="rotate(-6 52 158)"/>
+              <rect data-part-category="hydraulic" x="30" y="82" width="68" height="10" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2" transform="rotate(-22 64 87)"/>
+              <rect data-part-category="engine" x="50" y="48" width="238" height="158" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="3"/>
+              <rect x="58" y="58" width="180" height="52" rx="4" fill="none" stroke="#888" stroke-width="1.5"/>
+              <line x1="88" y1="60" x2="88" y2="108" stroke="#888" stroke-width="1" opacity="0.5"/>
+              <line x1="118" y1="60" x2="118" y2="108" stroke="#888" stroke-width="1" opacity="0.5"/>
+              <line x1="148" y1="60" x2="148" y2="108" stroke="#888" stroke-width="1" opacity="0.5"/>
+              <line x1="178" y1="60" x2="178" y2="108" stroke="#888" stroke-width="1" opacity="0.5"/>
+              <line x1="208" y1="60" x2="208" y2="108" stroke="#888" stroke-width="1" opacity="0.5"/>
+              <text x="172" y="162" text-anchor="middle" font-size="14" fill="#444" font-weight="bold" font-family="Arial">ENGINE</text>
+              <rect data-part-category="engine" x="108" y="12" width="15" height="40" rx="3" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <ellipse cx="115" cy="12" rx="7" ry="3" fill="#888" stroke="#111" stroke-width="1.5"/>
+              <rect data-part-category="system" x="296" y="32" width="152" height="172" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="3"/>
+              <rect x="310" y="46" width="124" height="100" rx="6" fill="#a8d4f0" stroke="#111" stroke-width="2"/>
+              <line x1="372" y1="146" x2="372" y2="204" stroke="#111" stroke-width="1.5"/>
+              <text x="372" y="178" text-anchor="middle" font-size="13" fill="#444" font-weight="bold" font-family="Arial">CAB</text>
+              <rect data-part-category="tool" x="0" y="28" width="28" height="192" rx="5" fill="#d0d0d0" stroke="#111" stroke-width="3"/>
+              <rect x="0" y="218" width="28" height="8" rx="2" fill="#888" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="accident_prevention" x="0" y="28" width="7" height="192" rx="2" fill="#d0d0d0" stroke="#555" stroke-width="1"/>
+            </svg>
+            {% elif machine.machine_type == "excavator" %}
+            <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="28" y="208" width="444" height="64" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="450" cy="240" r="38" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="50" cy="240" r="30" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="158" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <circle data-part-category="transmission" cx="248" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <circle data-part-category="transmission" cx="338" cy="260" r="18" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="system" x="80" y="60" width="340" height="150" rx="10" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="engine" x="285" y="76" width="122" height="118" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="system" x="90" y="44" width="120" height="166" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="100" y="56" width="96" height="100" rx="4" fill="#a8d4f0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="hydraulic" x="208" y="8" width="22" height="118" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2" transform="rotate(22 219 67)"/>
+              <rect data-part-category="hydraulic" x="285" y="5" width="16" height="85" rx="5" fill="#d0d0d0" stroke="#111" stroke-width="2" transform="rotate(55 293 47)"/>
+              <path data-part-category="tool" d="M388,28 L428,12 L438,48 L398,64 Z" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+            </svg>
+            {% elif machine.machine_type == "crane" %}
+            <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <rect data-part-category="transmission" x="28" y="208" width="444" height="64" rx="12" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="450" cy="240" r="38" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="50" cy="240" r="30" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="system" x="80" y="80" width="340" height="132" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="engine" x="280" y="95" width="125" height="100" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="tool" x="152" y="8" width="22" height="205" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="tool" x="172" y="8" width="200" height="14" rx="4" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <line x1="332" y1="22" x2="332" y2="62" stroke="#d0d0d0" stroke-width="4" data-part-category="tool" stroke-linecap="round"/>
+              <circle data-part-category="tool" cx="332" cy="70" r="10" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+            </svg>
+            {% elif machine.machine_type == "dumptruck" %}
+            <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" class="machine-svg">
+              <circle data-part-category="transmission" cx="100" cy="238" r="42" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle cx="100" cy="238" r="18" fill="none" stroke="#888" stroke-width="2"/>
+              <circle data-part-category="transmission" cx="370" cy="238" r="44" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <circle data-part-category="transmission" cx="414" cy="238" r="40" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="60" y="188" width="400" height="28" rx="6" fill="#c0c0c0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="system" x="60" y="68" width="140" height="124" rx="8" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect x="72" y="80" width="112" height="86" rx="4" fill="#a8d4f0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="engine" x="40" y="108" width="64" height="85" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="tool" x="198" y="78" width="265" height="115" rx="6" fill="#d0d0d0" stroke="#111" stroke-width="2.5"/>
+              <rect data-part-category="hydraulic" x="200" y="172" width="20" height="28" rx="3" fill="#d0d0d0" stroke="#111" stroke-width="2"/>
+              <rect data-part-category="pneumatic" x="78" y="218" width="42" height="12" rx="3" fill="#d0d0d0" stroke="#111" stroke-width="1.5"/>
+              <rect data-part-category="pneumatic" x="348" y="218" width="80" height="12" rx="3" fill="#d0d0d0" stroke="#111" stroke-width="1.5"/>
+            </svg>
+            {% else %}
+            <p class="py-10 px-5 text-[#666] text-[16px]">Vizualizare indisponibilă pentru tipul: <b>{{ machine.machine_type }}</b></p>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+{{ readings_data|json_script:"readings-data" }}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const MACHINE_ID   = "{{ machine.machine_id|escapejs }}";
+const MACHINE_TYPE = "{{ machine.machine_type|escapejs }}";
+const STATUS_LABELS = {
+    normal:   "Normal",
+    warning:  "Avertizare",
+    critical: "Critic",
+    fault:    "Defect",
+    unknown:  "Necunoscut"
+};
+
+const INITIAL_READINGS = JSON.parse(document.getElementById('readings-data').textContent);
+
+const sensorStatus = {};
+document.querySelectorAll('.sensor-card').forEach(card => {
+    sensorStatus[card.dataset.category + '-' + card.dataset.sensorId] = card.dataset.status;
+});
+
+function updateSummary() {
+    const counts = { normal: 0, warning: 0, critical: 0, fault: 0, unknown: 0 };
+    Object.values(sensorStatus).forEach(s => { counts[s in counts ? s : 'unknown']++; });
+    for (const [s, n] of Object.entries(counts)) {
+        const el = document.getElementById('count-' + s);
+        if (el) el.textContent = n;
+    }
+}
+updateSummary();
+
+// Tab switching
+let mapInitialized = false;
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const pane = document.getElementById('tab-' + btn.dataset.tab);
+        if (pane) pane.classList.add('active');
+        if (btn.dataset.tab === 'gps' && !mapInitialized) { initMap(); mapInitialized = true; }
+    });
+});
+
+// GPS Map
+let gpsMap = null, gpsMarker = null;
+let gpsLat = {{ gps_lat|default:"null" }};
+let gpsLng = {{ gps_lng|default:"null" }};
+
+function initMap() {
+    const center = (gpsLat && gpsLng) ? [gpsLat, gpsLng] : [44.4268, 26.1025];
+    const zoom   = (gpsLat && gpsLng) ? 17 : 13;
+    gpsMap = L.map('gps-map').setView(center, zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(gpsMap);
+    if (gpsLat && gpsLng) {
+        gpsMarker = L.marker([gpsLat, gpsLng]).addTo(gpsMap)
+            .bindPopup('<b>' + MACHINE_ID + '</b><br>' + gpsLat.toFixed(6) + ', ' + gpsLng.toFixed(6))
+            .openPopup();
+    }
+}
+
+function updateGpsMarker(lat, lng, timestamp) {
+    gpsLat = lat; gpsLng = lng;
+    document.getElementById('gps-lat-display').textContent = lat.toFixed(6);
+    document.getElementById('gps-lng-display').textContent = lng.toFixed(6);
+    document.getElementById('gps-updated').textContent = new Date(timestamp).toLocaleTimeString('ro-RO');
+    if (!gpsMap) return;
+    const ll = [lat, lng];
+    if (gpsMarker) { gpsMarker.setLatLng(ll); gpsMarker.setPopupContent('<b>' + MACHINE_ID + '</b><br>' + lat.toFixed(6) + ', ' + lng.toFixed(6)); }
+    else           { gpsMarker = L.marker(ll).addTo(gpsMap).bindPopup('<b>' + MACHINE_ID + '</b>').openPopup(); }
+    gpsMap.panTo(ll);
+}
+
+// SVG Coloring
+const STATUS_FILL = { normal: '#8fd84b', warning: '#f5a623', critical: '#ff4747', fault: '#1a1a1a' };
+const SEVERITY    = { normal: 0, warning: 1, critical: 2, fault: 3 };
+
+function worstPerCategory(readings) {
+    const cats = {};
+    readings.forEach(r => {
+        const sev = SEVERITY[r.status] ?? 0;
+        if (!(r.category in cats) || sev > (SEVERITY[cats[r.category]] ?? 0)) cats[r.category] = r.status;
+    });
+    return cats;
+}
+
+function applySvgColors(catStatus) {
+    document.querySelectorAll('[data-part-category]').forEach(el => {
+        const st = catStatus[el.dataset.partCategory];
+        el.style.fill   = st ? (STATUS_FILL[st] || '#d0d0d0') : '#d0d0d0';
+        el.style.stroke = st === 'fault' ? '#ff4747' : '';
+    });
+}
+applySvgColors(worstPerCategory(INITIAL_READINGS));
+
+const liveReadings = INITIAL_READINGS.map(r => ({ ...r }));
+
+// Camera feeds
+function updateCamera(sensorId, rawValue, receivedAt) {
+    const vp = document.getElementById('cam-vp-' + sensorId);
+    if (!vp) return;
+    const streaming = rawValue === 'streaming';
+    vp.classList.remove('streaming', 'offline');
+    vp.classList.add(streaming ? 'streaming' : 'offline');
+
+    const ts = document.getElementById('cam-ts-' + sensorId);
+    if (ts) ts.textContent = new Date(receivedAt).toLocaleTimeString('ro-RO');
+
+    const badge = document.getElementById('cam-badge-' + sensorId);
+    if (badge) {
+        badge.classList.remove('streaming', 'offline');
+        badge.classList.add(streaming ? 'streaming' : 'offline');
+        badge.innerHTML = streaming ? '&#9679; LIVE' : '&#9675; OFFLINE';
+    }
+}
+
+setInterval(() => {
+    document.querySelectorAll('.camera-viewport.streaming').forEach(vp => {
+        const ts = document.getElementById('cam-ts-' + vp.id.replace('cam-vp-', ''));
+        if (ts) ts.textContent = new Date().toLocaleTimeString('ro-RO');
+    });
+}, 1000);
+
+if (!document.querySelector('.camera-feed')) {
+    const msg = document.getElementById('no-cameras-msg');
+    if (msg) msg.style.display = 'block';
+}
+
+// WebSocket
+const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const socket = new WebSocket(wsScheme + '://' + window.location.host + '/ws/telemetry/');
+const wsDot   = document.getElementById('ws-dot');
+const wsLabel = document.getElementById('ws-label');
+
+socket.onopen  = () => { wsDot.classList.add('connected');    wsLabel.textContent = 'Live'; };
+socket.onclose = () => { wsDot.classList.remove('connected'); wsLabel.textContent = 'Deconectat'; };
+socket.onerror = () => { wsDot.classList.remove('connected'); wsLabel.textContent = 'Eroare conexiune'; };
+
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    if (!data.machine_id || data.machine_id !== MACHINE_ID) return;
+
+    // Sensor card
+    const card = document.getElementById('sensor-' + data.category + '-' + data.sensor_id);
+    if (card) {
+        card.querySelector('.sensor-value').textContent = data.raw_value;
+        const unitEl = card.querySelector('.sensor-unit');
+        if (unitEl) unitEl.textContent = data.unit || '';
+
+        const st = data.status || 'unknown';
+        card.dataset.status = st;   // CSS [data-status] handles the colors
+
+        const badge = card.querySelector('.badge');
+        badge.className   = 'badge badge-' + st;
+        badge.textContent = STATUS_LABELS[st] || st;
+
+        card.querySelector('.sensor-time').textContent = new Date(data.received_at).toLocaleTimeString('ro-RO');
+        sensorStatus[data.category + '-' + data.sensor_id] = st;
+        updateSummary();
+
+        card.classList.add('just-updated');
+        setTimeout(() => card.classList.remove('just-updated'), 800);
+    }
+
+    // GPS
+    if (data.category === 'gps') {
+        if (data.sensor_id === 'latitude'  && data.numeric_value != null) gpsLat = data.numeric_value;
+        if (data.sensor_id === 'longitude' && data.numeric_value != null) gpsLng = data.numeric_value;
+        if (gpsLat && gpsLng) updateGpsMarker(gpsLat, gpsLng, data.received_at);
+    }
+
+    // Camera
+    if (data.sensor_id && data.sensor_id.includes('camera')) {
+        updateCamera(data.sensor_id, data.raw_value, data.received_at);
+    }
+
+    // SVG
+    const idx = liveReadings.findIndex(r => r.category === data.category && r.sensor_id === data.sensor_id);
+    if (idx >= 0) liveReadings[idx].status = data.status;
+    else          liveReadings.push({ category: data.category, sensor_id: data.sensor_id, status: data.status });
+    applySvgColors(worstPerCategory(liveReadings));
+};
+</script>
+{% endblock %}

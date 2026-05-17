@@ -1,0 +1,163 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Adaugă Utilaj | Platforma Monitorizare Utilaje{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'machines' %}"
+   class="inline-flex items-center gap-2 mb-5 px-5 py-2.5 no-underline text-[#111] text-[16px] font-bold bg-white hover:bg-[#eef9c9] transition-colors rounded-[10px]"
+   style="border:2px solid #111">
+    &#8592; Înapoi la utilaje
+</a>
+
+<div class="max-w-[1100px] mx-auto">
+
+    <div class="mb-7">
+        <h2 class="text-[30px] font-bold mb-2">&#128268; Adaugă Utilaj Nou</h2>
+        <p class="text-[16px] text-[#555]">Înregistrează un ESP32 nou. Senzorii sunt detectați automat din primele mesaje MQTT.</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-7 items-start">
+
+        <!-- Form card -->
+        <div class="bg-white p-8 rounded-3xl" style="border:3px solid #111">
+            <form method="post" action="{% url 'add_machine' %}">
+                {% csrf_token %}
+
+                <!-- ESP32 Serial -->
+                <div class="flex flex-col gap-1.5 mb-[18px]">
+                    <label class="text-[15px] font-bold text-[#111]" for="f_machine_id">
+                        Număr serial ESP32 <span class="text-[#ff4747]">*</span>
+                    </label>
+                    <input class="px-4 py-3 text-[16px] rounded-xl outline-none transition-all bg-white {% if form.machine_id.errors %}border-[#ff4747]{% else %}border-[#111]{% endif %}"
+                           style="border-width:2px;border-style:solid;font-family:Arial,sans-serif"
+                           type="text" id="f_machine_id" name="machine_id"
+                           value="{{ form.machine_id.value|default:'' }}"
+                           placeholder="ex: BD-001"
+                           autocomplete="off" maxlength="32">
+                    {% for err in form.machine_id.errors %}
+                        <p class="text-[13px] text-[#ff4747] font-bold">{{ err }}</p>
+                    {% endfor %}
+                    <p class="text-[12px] text-[#888]">Același ID programat în firmware-ul ESP32.</p>
+                </div>
+
+                <!-- Machine Type -->
+                <div class="flex flex-col gap-1.5 mb-[18px]">
+                    <label class="text-[15px] font-bold text-[#111]" for="f_machine_type">
+                        Tip utilaj <span class="text-[#ff4747]">*</span>
+                    </label>
+                    <select class="px-4 py-3 text-[16px] rounded-xl outline-none transition-all bg-white {% if form.machine_type.errors %}border-[#ff4747]{% else %}border-[#111]{% endif %}"
+                            style="border-width:2px;border-style:solid;font-family:Arial,sans-serif"
+                            id="f_machine_type" name="machine_type">
+                        <option value="">— Selectează tipul —</option>
+                        {% for value, display in form.fields.machine_type.choices %}
+                            {% if value %}
+                            <option value="{{ value }}"
+                                {% if form.machine_type.value == value %}selected{% endif %}>
+                                {{ display }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    {% for err in form.machine_type.errors %}
+                        <p class="text-[13px] text-[#ff4747] font-bold">{{ err }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Label -->
+                <div class="flex flex-col gap-1.5 mb-[18px]">
+                    <label class="text-[15px] font-bold text-[#111]" for="f_label">Nume afișat</label>
+                    <input class="px-4 py-3 text-[16px] rounded-xl outline-none transition-all bg-white border-[#111]"
+                           style="border-width:2px;border-style:solid;font-family:Arial,sans-serif"
+                           type="text" id="f_label" name="label"
+                           value="{{ form.label.value|default:'' }}"
+                           placeholder="ex: Buldozer Sector 3 (opțional)"
+                           maxlength="100">
+                </div>
+
+                <!-- Location -->
+                <div class="flex flex-col gap-1.5 mb-[18px]">
+                    <label class="text-[15px] font-bold text-[#111]" for="f_location">Locație</label>
+                    <input class="px-4 py-3 text-[16px] rounded-xl outline-none transition-all bg-white border-[#111]"
+                           style="border-width:2px;border-style:solid;font-family:Arial,sans-serif"
+                           type="text" id="f_location" name="location"
+                           value="{{ form.location.value|default:'' }}"
+                           placeholder="ex: Șantier Bd. Unirii (opțional)"
+                           maxlength="200">
+                </div>
+
+                {% if form.non_field_errors %}
+                <div class="px-4 py-3 rounded-[10px] text-[#ff4747] text-[14px] font-bold mb-[18px] bg-[#fff3f3]" style="border:2px solid #ff4747">
+                    {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="flex gap-3 justify-end mt-2">
+                    <a href="{% url 'machines' %}"
+                       class="px-6 py-3 text-[16px] font-bold no-underline text-[#555] bg-white hover:bg-[#f5f5f5] transition-colors rounded-xl"
+                       style="border:2px solid #ccc">
+                        Anulează
+                    </a>
+                    <button type="submit"
+                            class="px-7 py-3 text-[16px] font-bold cursor-pointer text-[#111] rounded-xl hover:brightness-105 transition-all"
+                            style="border:3px solid #111;background:linear-gradient(180deg,#98db45 0%,#c7ef68 100%)">
+                        &#43; Înregistrează
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Hint card -->
+        <div class="flex flex-col gap-6 p-7 rounded-3xl bg-[#f4fce8]" style="border:3px solid #98db45">
+
+            <div class="flex flex-col gap-2.5">
+                <div class="text-[16px] font-bold">&#128268; Configurare ESP32</div>
+                <p class="text-[14px] leading-relaxed text-[#333]">Programează ESP32-ul să publice date pe topicuri MQTT cu formatul:</p>
+                <div class="bg-[#111] text-[#8fd84b] font-mono text-[15px] px-4 py-2.5 rounded-lg my-2.5 break-all">
+                    <span class="text-[#f5a623]" id="previewType">tip_utilaj</span>/<span class="text-white font-bold" id="previewId">SERIAL</span>/<span class="text-[#8fd84b] opacity-70">categorie/senzor</span>
+                </div>
+                <p class="text-[14px] text-[#333]">
+                    Broker: <code class="bg-[#e8f5d0] px-2 py-0.5 rounded text-[13px]" style="border:1px solid #98db45">localhost : 1883</code>
+                </p>
+            </div>
+
+            <div class="flex flex-col gap-2.5">
+                <div class="text-[16px] font-bold">&#128200; Detectare automată</div>
+                <p class="text-[14px] leading-relaxed text-[#333]">După ce ESP32-ul se conectează și publică primul mesaj, platforma:</p>
+                <ul class="list-none flex flex-col gap-1.5 p-0 m-0">
+                    <li class="check-item text-[14px] text-[#333]">Creează automat categoriile de senzori</li>
+                    <li class="check-item text-[14px] text-[#333]">Înregistrează fiecare senzor detectat</li>
+                    <li class="check-item text-[14px] text-[#333]">Începe salvarea istoricului de citiri</li>
+                    <li class="check-item text-[14px] text-[#333]">Activează monitorizarea live (WebSocket)</li>
+                </ul>
+            </div>
+
+            <div class="flex flex-col gap-2.5">
+                <div class="text-[16px] font-bold">&#9989; Exemplu topic</div>
+                <div class="bg-[#111] text-[#8fd84b] font-mono text-[15px] px-4 py-2.5 rounded-lg break-all" id="exampleTopic">
+                    <span class="text-[#f5a623]">bulldozer</span>/<span class="text-white font-bold">BD-001</span>/<span class="text-[#8fd84b] opacity-70">engine/temperature</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const typeSelect  = document.getElementById('f_machine_type');
+const idInput     = document.getElementById('f_machine_id');
+const previewId   = document.getElementById('previewId');
+const previewType = document.getElementById('previewType');
+
+function updatePreview() {
+    previewId.textContent   = idInput.value.trim().toUpperCase() || 'SERIAL';
+    previewType.textContent = typeSelect.value || 'tip_utilaj';
+}
+idInput.addEventListener('input', updatePreview);
+typeSelect.addEventListener('change', updatePreview);
+updatePreview();
+</script>
+{% endblock %}

@@ -3,47 +3,57 @@
 {% block title %}Utilajele mele | Platforma Monitorizare Utilaje{% endblock %}
 
 {% block content %}
-<div class="machines-header">
-    <div class="machines-title-box">
-        <h2>Utilajele mele</h2>
+<div class="flex justify-center mb-6">
+    <div class="bg-white px-[34px] py-3.5 rounded-[28px]" style="border:3px solid #111">
+        <h2 class="text-[32px] font-bold">Utilajele mele</h2>
     </div>
 </div>
 
-<div class="machines-grid">
+<div class="grid grid-cols-3 gap-7">
     {% for machine in machines %}
-        <div class="machine-card">
-            <div class="machine-top">
-                <div class="machine-icon">🚜</div>
-                <div class="machine-info">
-                    <h3>{{ machine.get_machine_type_display|default:machine.machine_type }}</h3>
-                    <p>SN: {{ machine.machine_id }}</p>
-                </div>
-            </div>
-
-            <div class="status-row">
-                {% if machine.is_active %}
-                    <span class="badge badge-active">Activ</span>
-                {% else %}
-                    <span class="badge badge-inactive">Inactiv</span>
-                {% endif %}
-            </div>
-
-            <div class="machine-actions">
-                <a href="#" class="btn-green">Monitorizeaza</a>
+    <div class="bg-white p-[26px] flex flex-col gap-[18px] rounded-[34px]" style="border:4px solid #111;min-height:290px">
+        <div class="flex items-start gap-4">
+            <div class="text-[64px] leading-none">🚜</div>
+            <div>
+                <h3 class="text-[28px] font-bold mb-1.5">{{ machine.get_machine_type_display|default:machine.machine_type }}</h3>
+                <p class="text-2xl">SN: {{ machine.machine_id }}</p>
+                {% if machine.label %}<p class="text-[16px] text-[#666] mt-1">{{ machine.label }}</p>{% endif %}
             </div>
         </div>
-    {% empty %}
-        <div class="page-card">
-            <h2 class="section-title">Nu există utilaje înregistrate</h2>
-            <p class="muted-text">Adaugă date dummy sau utilaje reale pentru a le afișa aici.</p>
-        </div>
-    {% endfor %}
 
-    <div class="empty-card">
-        <div class="empty-card-content">
-            <h3>Adauga Utilaj</h3>
-            <div class="plus">+</div>
+        <div class="flex items-center justify-between gap-3.5">
+            {% if machine.is_active %}
+                <span class="machine-badge badge-active">Activ</span>
+            {% else %}
+                <span class="machine-badge badge-pending">Așteptare</span>
+            {% endif %}
+            {% if machine.location %}
+                <span class="text-[14px] text-[#555]">&#128205; {{ machine.location }}</span>
+            {% endif %}
+        </div>
+
+        <div class="mt-auto flex justify-center">
+            <a href="{% url 'machine_status' machine.pk %}"
+               class="inline-block font-bold no-underline text-[#111] text-[18px] px-[22px] py-3 rounded-xl hover:brightness-105 transition-all"
+               style="background:linear-gradient(180deg,#98db45 0%,#c7ef68 100%);border:3px solid #111">
+                Monitorizează
+            </a>
         </div>
     </div>
+    {% empty %}
+    <div class="bg-white p-7 rounded-[28px] col-span-3" style="border:3px solid #111">
+        <h2 class="text-[34px] text-center mb-[18px] font-bold">Nu există utilaje înregistrate</h2>
+        <p class="text-[18px] leading-relaxed text-center">Adaugă primul utilaj folosind butonul de mai jos.</p>
+    </div>
+    {% endfor %}
+
+    <a href="{% url 'add_machine' %}"
+       class="flex items-center justify-center no-underline text-[#111] bg-[#fbfff1] rounded-[34px] hover:bg-[#eef9c9] transition-colors"
+       style="border:4px dashed #111;min-height:290px;padding:26px">
+        <div class="text-center">
+            <h3 class="text-[28px] font-bold mb-2.5">Adaugă Utilaj</h3>
+            <div class="text-[66px] font-bold leading-none">+</div>
+        </div>
+    </a>
 </div>
 {% endblock %}

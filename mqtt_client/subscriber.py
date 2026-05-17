@@ -1,25 +1,32 @@
 import os, sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from datetime import datetime
 
 import django
 import paho.mqtt.client as mqtt
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "website_sensor_licenta.settings")
 django.setup()
 
+from django.utils import timezone
 from telemetry.models import MachineSystem, SensorCategory, Sensor, SensorReading
 from mqtt_client.topics import SENSORS
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1883
 SUBSCRIBE_WILDCARD = "+/+/+/+"  # machine_type/machine_id/category/sensor_id
+BROADCAST_URL = "http://127.0.0.1:8000/api/broadcast/"
+_broadcast_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="broadcast")
 
-channel_layer = get_channel_layer()
+
+def _post_broadcast(payload: dict):
+    try:
+        requests.post(BROADCAST_URL, json=payload, timeout=0.5)
+    except Exception:
+        pass
 
 
 def get_status(sensor_id, category, numeric_value, raw_value):
@@ -90,7 +97,7 @@ def on_message(client, userdata, msg):
                 "label": f"{machine_type.capitalize()} {machine_id}",
             }
         )
-        system.last_seen = datetime.now()
+        system.last_seen = timezone.now()
         system.save(update_fields=["last_seen"])
 
         # Gaseste sau creaza SensorCategory
@@ -133,27 +140,21 @@ def on_message(client, userdata, msg):
             topic=msg.topic,
         )
 
-        # Trimite live in dashboard
-        if channel_layer:
-            async_to_sync(channel_layer.group_send)(
-                "telemetry",
-                {
-                    "type": "telemetry_message",
-                    "data": {
-                        "id":             reading.id,
-                        "machine_type":   system.machine_type,
-                        "machine_id":     system.machine_id,
-                        "category":       category_name,
-                        "sensor_id":      sensor_id,
-                        "raw_value":      raw_value,
-                        "numeric_value":  numeric_value,
-                        "unit":           sensor.unit,
-                        "status":         status,
-                        "topic":          msg.topic,
-                        "received_at":    reading.received_at.isoformat(),
-                    }
-                }
-            )
+        # Trimite live in dashboard (non-blocking HTTP POST catre Django)
+        payload = {
+            "id":            reading.id,
+            "machine_type":  system.machine_type,
+            "machine_id":    system.machine_id,
+            "category":      category_name,
+            "sensor_id":     sensor_id,
+            "raw_value":     raw_value,
+            "numeric_value": numeric_value,
+            "unit":          sensor.unit,
+            "status":        status,
+            "topic":         msg.topic,
+            "received_at":   reading.received_at.isoformat(),
+        }
+        _broadcast_pool.submit(_post_broadcast, payload)
 
         print(
             f"[{system.machine_id}] {category_name}/{sensor_id} = "
